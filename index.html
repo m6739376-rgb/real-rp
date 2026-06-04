@@ -51,7 +51,7 @@ body {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-main);
     font-size: 22px;
-    display: none; /* Masqué par défaut, géré dynamiquement */
+    display: none;
     align-items: center;
     justify-content: center;
     cursor: pointer;
@@ -188,7 +188,7 @@ button {
 .btn-primary { background: var(--accent); color: white; }
 .btn-secondary { background: rgba(255,255,255,0.08); color: white; }
 
-/* 🎬 GRANDE FENÊTRE IMMERSIVE POUR LES DIRECTS (RESTITUÉE) */
+/* 🎬 GRANDE FENÊTRE IMMERSIVE POUR LES DIRECTS */
 .tiktok-player-view {
     width: 95%;
     max-width: 1100px;
@@ -473,6 +473,7 @@ button {
             <h3 id="txt-addAdminTitle">➕ Ajouter un membre du Staff</h3>
             <input id="newName" placeholder="Nom Complet du Staff">
             <input id="newEmail" placeholder="Email Unique">
+            <input id="newPassword" type="text" placeholder="Définir le mot de passe du Staff">
             <div style="display: flex; gap: 10px;">
                 <button class="green" style="flex: 1;" onclick="addStaff('admin')">Ajouter Admin</button>
                 <button class="blue" style="flex: 1;" onclick="addStaff('cofonda')">Ajouter Cofondateur (Max 1)</button>
@@ -621,13 +622,6 @@ function updateLiveButtonVisibility() {
 function openAdmin() { document.getElementById("adminAuthOverlay").style.display = "flex"; }
 function closeAdminAuth() { document.getElementById("adminAuthOverlay").style.display = "none"; }
 
-function generateRandomPassword() {
-    let chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-    let pass = "";
-    for(let i=0; i<8; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
-    return pass;
-}
-
 function submitAdminLogin() {
     let email = document.getElementById("authStaffEmail").value.trim();
     let pass = document.getElementById("authStaffPassword").value.trim();
@@ -698,7 +692,6 @@ async function startLiveStreaming() {
             activeStreamsDB.staffLive = liveData;
         }
 
-        // Synchronise aussi le mode de visionnage immersif TikTok pour la personne qui émet
         liveComments = [];
         openModalView("box-player");
         document.getElementById("ui-videoTitle").innerText = "[🔴 LIVE] " + title;
@@ -898,24 +891,25 @@ function updateProfileBioData() {
     localStorage.setItem("premium_user_profile", JSON.stringify(db_account));
 }
 
-/* ===== STAFF PANEL GESTION ===== */
+/* ===== STAFF PANEL GESTION (MODIFICATION ADOPTEE ICI) ===== */
 function addStaff(role){
     let name = document.getElementById("newName").value.trim();
     let email = document.getElementById("newEmail").value.trim();
-    if(!name || !email) return alert("Remplissez les champs !");
+    let password = document.getElementById("newPassword").value.trim();
     
-    let generatedPassword = generateRandomPassword();
+    if(!name || !email || !password) return alert("Remplissez tous les champs, y compris le mot de passe !");
     
     if(role === 'admin') {
-        admins.push({name, email, password: generatedPassword, date:Date.now(), canLive: false});
+        admins.push({name, email, password: password, date:Date.now(), canLive: false});
         localStorage.setItem("admins", JSON.stringify(admins));
     } else if(role === 'cofonda') {
         if(cofonda.length >= 1) return alert("Un seul cofondateur max !");
-        cofonda.push({name, email, password: generatedPassword, date:Date.now(), canLive: false});
+        cofonda.push({name, email, password: password, date:Date.now(), canLive: false});
         localStorage.setItem("cofonda", JSON.stringify(cofonda));
     }
     document.getElementById("newName").value = "";
     document.getElementById("newEmail").value = "";
+    document.getElementById("newPassword").value = "";
     renderAdmins();
     loadAdminSelect();
 }
