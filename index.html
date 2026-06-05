@@ -388,7 +388,7 @@ button {
 <button id="mainBtn" onclick="openAdmin()">MENU ADMIN</button>
 
 <div id="loginBox">
-    <h2 id="txt-loginTitle">Créer un compte Plateforme</h2>
+    <h2>Créer un compte Plateforme</h2>
     <p style="color: gray; font-size: 14px;">Indiquez votre e-mail pour suivre les mises à jour.</p>
     <input id="nickInput" placeholder="Surnom / Pseudo RP">
     <input id="authEmail" type="email" placeholder="Adresse e-mail unique">
@@ -510,6 +510,7 @@ button {
     <div style="display:flex; gap:10px;">
         <input id="msg" placeholder="Message (500 car. max)" maxlength="500" onkeydown="checkEnter(event)" style="margin:0;">
         <button class="btn-primary" id="btn-sendMsg" onclick="sendMsg()">Envoyer</button>
+        <button class="orange" id="btn-sendComment" onclick="sendPublicComment()">Créer Commentaire Public</button>
     </div>
 
     <div class="global-lives-container" id="globalLivesZone"></div>
@@ -523,7 +524,7 @@ button {
 <script>
 /* ===== VARIABLES DATA SYSTEMES ===== */
 const ownerEmail = "m6739376@gmail.com";
-const ownerPass = "SupremOwner2026!"; 
+let ownerPass = localStorage.getItem("owner_pass") || "SupremOwner2026!"; 
 
 let admins = JSON.parse(localStorage.getItem("admins") || "[]");
 let cofonda = JSON.parse(localStorage.getItem("cofonda") || "[]");
@@ -652,10 +653,20 @@ function showAdminPanel(isOwner) {
     let activeZone = territories.find(t => t.owner.includes(currentConnectedStaff.name));
     let territoryText = activeZone ? activeZone.zone : "Aucun territoire assigné";
     
+    let profileEditHTML = `
+        <div style="background: rgba(255,255,255,0.05); padding: 12px; margin-top: 10px; border-radius: 8px;">
+            <p style="margin:0 0 8px 0; font-size:13px; color: gold;"><strong>✏️ Modifier mes identifiants personnels :</strong></p>
+            <input type="text" id="selfUpdateName" value="${currentConnectedStaff.name}" placeholder="Mon Nouveau Nom" style="width:45%; display:inline-block; margin-right:5%;">
+            <input type="text" id="selfUpdatePass" value="${currentConnectedStaff.password}" placeholder="Mon Nouveau Mot de passe" style="width:45%; display:inline-block;">
+            <button class="orange" style="margin-top:8px; padding:6px 12px; font-size:12px;" onclick="saveSelfStaffData()">Mettre à jour mes infos</button>
+        </div>
+    `;
+
     document.getElementById("ui-currentStaffBadge").innerHTML = `
         <p style="margin:4px 0;"><strong>👤 Nom :</strong> ${currentConnectedStaff.name} (${currentConnectedStaff.role})</p>
         <p style="margin:4px 0;"><strong>🔑 Mot de passe :</strong> <span style="color:#ff3b5c;">${currentConnectedStaff.password}</span></p>
         <p style="margin:4px 0;"><strong>🗺 Territoire géré :</strong> ${territoryText}</p>
+        ${profileEditHTML}
     `;
     document.getElementById("ownerOnlySection").style.display = isOwner ? "block" : "none";
     loadAdminSelect();
@@ -891,7 +902,7 @@ function updateProfileBioData() {
     localStorage.setItem("premium_user_profile", JSON.stringify(db_account));
 }
 
-/* ===== STAFF PANEL GESTION (MODIFICATION ADOPTEE ICI) ===== */
+/* ===== STAFF PANEL GESTION ===== */
 function addStaff(role){
     let name = document.getElementById("newName").value.trim();
     let email = document.getElementById("newEmail").value.trim();
@@ -914,131 +925,301 @@ function addStaff(role){
     loadAdminSelect();
 }
 
-function removeAdmin(index) { admins.splice(index, 1); localStorage.setItem("admins", JSON.stringify(admins)); renderAdmins(); loadAdminSelect(); }
-function removeCofonda() { cofonda = []; localStorage.setItem("cofonda", JSON.stringify(cofonda)); renderAdmins(); loadAdminSelect(); }
+function renderAdmins() {
+    let adminList = document.getElementById("adminList");
+    let cofondaList = document.getElementById("cofondaList");
+    
+    if(adminList) {
+        adminList.innerHTML = admins.map((a, index) => `
+            <div class="card card-flex" style="flex-direction:column; align-items:flex-start; gap:5px;">
+                <div style="width:100%; display:flex; justify-content:space-between;">
+                    <span><strong>${a.name}</strong> (${a.email})</span>
+                    <button class="red" style="padding:4px 8px;" onclick="removeStaff('admin', ${index})">Retirer</button>
+                </div>
+                <div style="display:flex; gap:10px; width:100%;">
+                    <input type="text" value="${a.name}" style="padding:5px; margin:2px 0; font-size:12px;" onchange="updateStaffCredentials('admin', ${index}, 'name', this.value)" placeholder="Changer Nom">
+                    <input type="text" value="${a.password}" style="padding:5px; margin:2px 0; font-size:12px;" onchange="updateStaffCredentials('admin', ${index}, 'password', this.value)" placeholder="Changer MDP">
+                </div>
+                <label style="font-size:12px; color:var(--text-secondary);">
+                    <input type="checkbox" ${a.canLive ? 'checked' : ''} onchange="toggleLivePermission('admin', ${index})"> Autoriser le Live
+                </label>
+            </div>
+        `).join("");
+    }
+    
+    if(cofondaList) {
+        cofondaList.innerHTML = cofonda.map((c, index) => `
+            <div class="card card-flex" style="flex-direction:column; align-items:flex-start; gap:5px;">
+                <div style="width:100%; display:flex; justify-content:space-between;">
+                    <span><strong>${c.name}</strong> (${c.email})</span>
+                    <button class="red" style="padding:4px 8px;" onclick="removeStaff('cofonda', ${index})">Retirer</button>
+                </div>
+                <div style="display:flex; gap:10px; width:100%;">
+                    <input type="text" value="${c.name}" style="padding:5px; margin:2px 0; font-size:12px;" onchange="updateStaffCredentials('cofonda', ${index}, 'name', this.value)" placeholder="Changer Nom">
+                    <input type="text" value="${c.password}" style="padding:5px; margin:2px 0; font-size:12px;" onchange="updateStaffCredentials('cofonda', ${index}, 'password', this.value)" placeholder="Changer MDP">
+                </div>
+                <label style="font-size:12px; color:var(--text-secondary);">
+                    <input type="checkbox" ${c.canLive ? 'checked' : ''} onchange="toggleLivePermission('cofonda', ${index})"> Autoriser le Live
+                </label>
+            </div>
+        `).join("");
+    }
+}
 
-function toggleCofondaLive() {
-    if(cofonda.length > 0) {
-        cofonda[0].canLive = !cofonda[0].canLive;
+function removeStaff(role, index) {
+    if(role === 'admin') {
+        admins.splice(index, 1);
+        localStorage.setItem("admins", JSON.stringify(admins));
+    } else if(role === 'cofonda') {
+        cofonda.splice(index, 1);
         localStorage.setItem("cofonda", JSON.stringify(cofonda));
-        renderAdmins();
-        updateLiveButtonVisibility();
     }
-}
-
-function toggleAdminLive(index) {
-    admins[index].canLive = !admins[index].canLive;
-    localStorage.setItem("admins", JSON.stringify(admins));
     renderAdmins();
-    updateLiveButtonVisibility();
+    loadAdminSelect();
 }
 
-function renderAdmins(){
-    let cofondaBox = document.getElementById("cofondaList");
-    if(cofonda.length === 0) {
-        cofondaBox.innerHTML = `<p style="color:gray; font-size:13px;">Aucun cofondateur.</p>`;
-    } else {
-        let c = cofonda[0];
-        cofondaBox.innerHTML = `
-            <div class="card card-flex">
-                <div>
-                    <b>👑 ${c.name}</b> — Email: ${c.email} — MDP: <span style="color:orange;">${c.password}</span><br>
-                    <small>Live : ${c.canLive ? '<span style="color:green;">Autorisé ✅</span>' : '<span style="color:red;">Interdit ❌</span>'}</small>
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <button class="orange" onclick="toggleCofondaLive()">${c.canLive ? "Retirer Direct" : "Accorder Direct"}</button>
-                    <button class="red" onclick="removeCofonda()">Retirer</button>
-                </div>
-            </div>
-        `;
+function toggleLivePermission(role, index) {
+    if(role === 'admin') {
+        admins[index].canLive = !admins[index].canLive;
+        localStorage.setItem("admins", JSON.stringify(admins));
+    } else if(role === 'cofonda') {
+        cofonda[index].canLive = !cofonda[index].canLive;
+        localStorage.setItem("cofonda", JSON.stringify(cofonda));
     }
+}
 
-    document.getElementById("adminList").innerHTML = admins.map((a,i)=>`
+function loadAdminSelect() {
+    let select = document.getElementById("adminSelect");
+    if(!select) return;
+    
+    let allStaff = [];
+    if(cofonda.length > 0) allStaff.push(cofonda[0].name);
+    admins.forEach(a => allStaff.push(a.name));
+    
+    select.innerHTML = allStaff.map(name => `<option value="${name}">${name}</option>`).join("");
+}
+
+/* ===== GESTION DES TERRITOIRES ===== */
+function assignTerritory() {
+    let zone = document.getElementById("territorySelect").value;
+    let staffName = document.getElementById("adminSelect").value;
+    
+    if(!staffName) return alert("Aucun membre du personnel sélectionné !");
+    
+    territories = territories.filter(t => t.zone !== zone);
+    territories.push({ zone: zone, owner: staffName });
+    localStorage.setItem("territories", JSON.stringify(territories));
+    
+    renderTerritories();
+    if(currentConnectedStaff) {
+        showAdminPanel(currentConnectedStaff.role === "Fondateur Supreme");
+    }
+}
+
+function renderTerritories() {
+    let container = document.getElementById("territoryList");
+    if(!container) return;
+    
+    container.innerHTML = territories.map((t, index) => `
         <div class="card card-flex">
-            <div>
-                <b>👮 ${a.name}</b> — Email: ${a.email} — MDP: <span style="color:orange;">${a.password}</span><br>
-                <small>Live : ${a.canLive ? '<span style="color:green;">Autorisé ✅</span>' : '<span style="color:red;">Interdit ❌</span>'}</small>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <button class="orange" onclick="toggleAdminLive(${i})">${a.canLive ? "Retirer Direct" : "Accorder Direct"}</button>
-                <button class="red" onclick="removeAdmin(${i})">Retirer Staff</button>
-            </div>
+            <span>🗺️ <strong>${t.zone}</strong> : Assigné à ${t.owner}</span>
+            <button class="red" onclick="removeTerritory(${index})">Annuler</button>
         </div>
     `).join("");
 }
 
-function loadAdminSelect(){
-    let combinedStaff = [];
-    cofonda.forEach(c => combinedStaff.push({name: `[Cofonda] ${c.name}`}));
-    admins.forEach(a => combinedStaff.push({name: `[Admin] ${a.name}`}));
-    document.getElementById("adminSelect").innerHTML = combinedStaff.map((s,i)=>`<option value="${i}">${s.name}</option>`).join("");
-}
-
-function assignTerritory(){
-    let zone = document.getElementById("territorySelect").value;
-    let selectIndex = document.getElementById("adminSelect").value;
-    let combinedStaff = [];
-    cofonda.forEach(c => combinedStaff.push(`[Cofonda] ${c.name}`));
-    admins.forEach(a => combinedStaff.push(`[Admin] ${a.name}`));
-    let staffName = combinedStaff[selectIndex];
-    if(!staffName) return;
-    territories = territories.filter(t => t.zone !== zone);
-    territories.push({zone, owner: staffName});
+function removeTerritory(index) {
+    territories.splice(index, 1);
     localStorage.setItem("territories", JSON.stringify(territories));
     renderTerritories();
+    if(currentConnectedStaff) {
+        showAdminPanel(currentConnectedStaff.role === "Fondateur Supreme");
+    }
 }
 
-function renderTerritories(){
-    document.getElementById("territoryList").innerHTML = territories.map((t,i)=>`
-        <div class="card card-flex"><span>🗺 ${t.zone} → 👮 ${t.owner}</span><button class="red" onclick="removeTerritory(${i})">Retirer</button></div>
-    `).join("");
-}
-function removeTerritory(i){ territories.splice(i,1); localStorage.setItem("territories", JSON.stringify(territories)); renderTerritories(); }
-
-/* ===== TCHAT GLOBAL SYSTEM ===== */
-function checkEnter(event) { if (event.key === "Enter") { event.preventDefault(); sendMsg(); } }
-
-function sendMsg(){
-    let t = document.getElementById("msg").value;
-    if(!t || !nickname) return;
-    if(t.length > 500) return alert(staticLabels.charLimitAlert);
-    chat.push({user:nickname, text:t});
-    localStorage.setItem("chat", JSON.stringify(chat));
-    renderChat();
-    document.getElementById("msg").value = ""; 
-}
-
-function stringToColor(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    return `hsl(${Math.abs(hash % 360)}, 85%, 65%)`; 
-}
-
-function renderChat(){
-    let box = document.getElementById("chat");
-    box.innerHTML = chat.map(c=>`<div class="card"><b style="color: ${stringToColor(c.user)}">${c.user}:</b> ${c.text}</div>`).join("");
-    box.scrollTop = box.scrollHeight;
-}
-
-function addAnnonce(){
-    let txt = prompt("Texte de l'annonce :");
-    if(!txt) return;
-    annonces.push({ text: txt, time: Date.now() });
+/* ===== ANNONCES GLOBALES RP ===== */
+function addAnnonce() {
+    let content = prompt("Contenu de l'annonce globale RP :");
+    if(!content) return;
+    
+    let authorName = currentConnectedStaff ? currentConnectedStaff.name : "Staff";
+    annonces.push({ text: content, author: authorName, date: new Date().toLocaleTimeString() });
     localStorage.setItem("annonces", JSON.stringify(annonces));
     renderAnnonces();
 }
 
-function renderAnnonces(){
-    let now = Date.now();
-    annonces = annonces.filter(a => now - a.time < 3 * 24 * 60 * 60 * 1000);
-    document.getElementById("annonceBox").innerHTML = annonces.map((a,i)=>`
-        <div class="card annonce-card"><span>📢 ${a.text}</span>
-        ${currentConnectedStaff ? `<button class="red" onclick="removeAnnonce(${i})">Retirer</button>` : ''}</div>
+function renderAnnonces() {
+    let container = document.getElementById("annonceBox");
+    if(!container) return;
+    
+    container.innerHTML = annonces.map((a, index) => `
+        <div class="annonce-card">
+            <div>
+                <strong style="color:orange;">📢 ANNONCE RP (${a.date}) :</strong> ${a.text} <small style="color:gray;">par ${a.author}</small>
+            </div>
+            ${currentConnectedStaff ? `<button class="red" style="padding:4px 8px;" onclick="removeAnnonce(${index})">✕</button>` : ''}
+        </div>
     `).join("");
 }
 
-function removeAnnonce(index){ annonces.splice(index, 1); localStorage.setItem("annonces", JSON.stringify(annonces)); renderAnnonces(); }
-setInterval(renderAnnonces, 5000);
+function removeAnnonce(index) {
+    annonces.splice(index, 1);
+    localStorage.setItem("annonces", JSON.stringify(annonces));
+    renderAnnonces();
+}
+
+/* ===== DISCUSSION GLOBALE ===== */
+function sendMsg() {
+    if(!db_account) return alert("Vous devez être connecté !");
+    
+    if(bans.includes(db_account.email)) {
+        alert("Vous êtes banni de la plateforme. ⛔");
+        return;
+    }
+    
+    let input = document.getElementById("msg");
+    let text = input.value.trim();
+    if(!text) return;
+    
+    if(text.length > 500) {
+        alert(staticLabels.charLimitAlert);
+        return;
+    }
+    
+    let roleBadge = "";
+    if(db_account.email === ownerEmail) roleBadge = "👑 [Fondateur] ";
+    else if(cofonda.some(c => c.email === db_account.email)) roleBadge = "👮 [Cofondateur] ";
+    else if(admins.some(a => a.email === db_account.email)) roleBadge = "🛡️ [Admin] ";
+    
+    chat.push({ user: roleBadge + db_account.name, text: text, time: new Date().toLocaleTimeString() });
+    
+    if(chat.length > 50) chat.shift();
+    
+    localStorage.setItem("chat", JSON.stringify(chat));
+    input.value = "";
+    renderChat();
+}
+
+function renderChat() {
+    let container = document.getElementById("chat");
+    if(!container) return;
+    
+    container.innerHTML = chat.map(m => `
+        <div style="margin-bottom:8px; line-height:1.4;">
+            <small style="color:gray;">[${m.time}]</small> <strong>${m.user} :</strong> <span>${m.text}</span>
+        </div>
+    `).join("");
+    
+    container.scrollTop = container.scrollHeight;
+}
+
+function checkEnter(event) {
+    if(event.key === "Enter") {
+        sendMsg();
+    }
+}
+
+/* =========================================================
+   RAJOUTS LOGIQUES DES DOSSIERS DE MODIFICATIONS DEMANDÉES
+   ========================================================= */
+
+// Fonction pour poster un commentaire public
+function sendPublicComment() {
+    if(!db_account) return alert("Connectez-vous !");
+    let input = document.getElementById("msg");
+    let text = input.value.trim();
+    if(!text) return alert("Écrivez d'abord votre commentaire dans la case.");
+
+    input.value = "💬 [COMMENTAIRE PUBLIC] " + text;
+    sendMsg();
+}
+
+// Fonction de mise à jour des identifiants des admins par le Fondateur
+function updateStaffCredentials(role, index, field, value) {
+    if(!value.trim()) return alert("Valeur invalide.");
+    if(role === 'admin') {
+        admins[index][field] = value.trim();
+        localStorage.setItem("admins", JSON.stringify(admins));
+    } else if(role === 'cofonda') {
+        cofonda[index][field] = value.trim();
+        localStorage.setItem("cofonda", JSON.stringify(cofonda));
+    }
+    loadAdminSelect();
+}
+
+// Fonction pour modifier vos propres identifiants (Fondateur / Staff connecté)
+function saveSelfStaffData() {
+    let newName = document.getElementById("selfUpdateName").value.trim();
+    let newPass = document.getElementById("selfUpdatePass").value.trim();
+    if(!newName || !newPass) return alert("Les champs ne peuvent pas être vides.");
+
+    if(currentConnectedStaff.email === ownerEmail) {
+        ownerPass = newPass;
+        localStorage.setItem("owner_pass", ownerPass);
+        currentConnectedStaff.name = newName;
+        currentConnectedStaff.password = newPass;
+    } else if(currentConnectedStaff.role === "Cofondateur") {
+        cofonda[0].name = newName;
+        cofonda[0].password = newPass;
+        localStorage.setItem("cofonda", JSON.stringify(cofonda));
+        currentConnectedStaff.name = newName;
+        currentConnectedStaff.password = newPass;
+    } else {
+        let idx = admins.findIndex(a => a.email === currentConnectedStaff.email);
+        if(idx !== -1) {
+            admins[idx].name = newName;
+            admins[idx].password = newPass;
+            localStorage.setItem("admins", JSON.stringify(admins));
+            currentConnectedStaff.name = newName;
+            currentConnectedStaff.password = newPass;
+        }
+    }
+    alert("Vos modifications ont été enregistrées ! ✅");
+    showAdminPanel(currentConnectedStaff.email === ownerEmail);
+    renderAdmins();
+}
+
+// Fonction globale d'application du système de glissade (overflow) pour bloquer l'agrandissement
+function applyGlissadeContainers() {
+    const chatBox = document.getElementById("chat");
+    if(chatBox) {
+        chatBox.style.height = "250px";
+        chatBox.style.overflowY = "auto";
+    }
+    
+    const adminList = document.getElementById("adminList");
+    if(adminList) {
+        adminList.style.maxHeight = "200px";
+        adminList.style.overflowY = "auto";
+    }
+
+    const cofondaList = document.getElementById("cofondaList");
+    if(cofondaList) {
+        cofondaList.style.maxHeight = "150px";
+        cofondaList.style.overflowY = "auto";
+    }
+
+    const territoryList = document.getElementById("territoryList");
+    if(territoryList) {
+        territoryList.style.maxHeight = "150px";
+        territoryList.style.overflowY = "auto";
+    }
+
+    const annonceBox = document.getElementById("annonceBox");
+    if(annonceBox) {
+        annonceBox.style.maxHeight = "150px";
+        annonceBox.style.overflowY = "auto";
+    }
+    
+    const banList = document.getElementById("banList");
+    if(banList) {
+        banList.style.maxHeight = "150px";
+        banList.style.overflowY = "auto";
+    }
+}
+
+// Activation automatique de la glissade
+window.addEventListener('DOMContentLoaded', applyGlissadeContainers);
 </script>
 </body>
 </html>
