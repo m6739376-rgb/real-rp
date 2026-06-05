@@ -369,6 +369,36 @@ button {
     max-height: 500px;
     object-fit: contain;
 }
+
+/* 🔊 DESIGN INTERFACE SALON VOCAL SOUHAITÉ */
+.voice-channel-card {
+    background: #111115;
+    border: 1px solid #383842;
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 25px;
+    text-align: center;
+}
+.voice-wave-animation {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 30px;
+    margin: 15px 0;
+}
+.voice-wave-animation span {
+    width: 4px;
+    background: var(--accent);
+    animation: bounceWave 0.8s infinite alternate;
+    border-radius: 2px;
+}
+.voice-wave-animation span:nth-child(2) { animation-delay: 0.2s; height: 15px; }
+.voice-wave-animation span:nth-child(3) { animation-delay: 0.4s; height: 25px; }
+.voice-wave-animation span:nth-child(4) { animation-delay: 0.1s; height: 10px; }
+@keyframes bounceWave {
+    0% { height: 5px; }
+    100% { height: 28px; }
+}
 </style>
 </head>
 <body>
@@ -449,6 +479,26 @@ button {
         <div id="ui-renderedLinkContainer" style="text-align:left; margin-top:5px;"></div>
     </div>
 
+    <div id="box-voice-room" class="modal-box" onclick="event.stopPropagation()">
+        <h2 style="color: deepskyblue; margin-bottom: 5px;">🔊 Salon Vocal Connecté</h2>
+        <p style="color: gray; font-size: 13px; margin: 0;">Vous discutez actuellement en direct avec la communauté.</p>
+        
+        <div class="voice-wave-animation" id="voiceWave">
+            <span style="height:10px;"></span><span style="height:22px;"></span><span style="height:14px;"></span><span style="height:5px;"></span>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; margin: 15px 0; text-align: left;">
+            <p style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-secondary);"><b>Membres dans le salon :</b></p>
+            <div id="voiceUsersList" style="font-size: 14px; font-weight: bold; display: flex; flex-direction: column; gap: 6px;">
+                </div>
+        </div>
+
+        <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
+            <button id="btn-toggleMute" class="orange" onclick="toggleVoiceMute()">Muter le micro 🎙️</button>
+            <button class="red" onclick="leaveVoiceChannel()">Quitter le Salon 🟥</button>
+        </div>
+    </div>
+
 </div>
 
 <div id="adminAuthOverlay" class="overlays-container" style="background:rgba(0,0,0,0.9)">
@@ -513,6 +563,12 @@ button {
         <button class="orange" id="btn-sendComment" onclick="sendPublicComment()">Créer Commentaire Public</button>
     </div>
 
+    <div class="voice-channel-card">
+        <h3 style="margin: 0 0 10px 0; color: deepskyblue;">🔊 Salon Vocal Général #1</h3>
+        <p style="color: var(--text-secondary); margin: 0 0 15px 0; font-size: 14px;">Rejoignez la discussion audio en un clic pour parler avec les joueurs et admins.</p>
+        <button class="blue" style="font-size: 15px; padding: 12px 30px;" onclick="joinVoiceChannel()">🔊 Rejoindre le Salon Vocal</button>
+    </div>
+
     <div class="global-lives-container" id="globalLivesZone"></div>
 </div>
 
@@ -536,6 +592,9 @@ let annonces = JSON.parse(localStorage.getItem("annonces") || "[]");
 let db_account = JSON.parse(localStorage.getItem("premium_user_profile") || "null");
 let currentConnectedStaff = null; 
 let liveComments = [];
+
+// Variable état du micro pour le salon vocal
+let isMuted = false;
 
 let nickname = localStorage.getItem("nick");
 let loginDate = localStorage.getItem("loginDate");
@@ -621,7 +680,7 @@ function updateLiveButtonVisibility() {
 
 /* ===== ACCÈS SÉCURISÉ PANEL ADMIN ===== */
 function openAdmin() { document.getElementById("adminAuthOverlay").style.display = "flex"; }
-function closeAdminAuth() { document.getElementById("adminAuthOverlay").style.display = "none"; }
+function closeAdminAuth() { document.getElementById("adminAuthOverlay").style.none = "none"; document.getElementById("adminAuthOverlay").style.display = "none"; }
 
 function submitAdminLogin() {
     let email = document.getElementById("authStaffEmail").value.trim();
@@ -1216,6 +1275,63 @@ function applyGlissadeContainers() {
         banList.style.maxHeight = "150px";
         banList.style.overflowY = "auto";
     }
+}
+
+/* ===== 🔊 LOGIQUE DU SALON VOCAL ET FENÊTRE SOUHAITÉE ===== */
+function joinVoiceChannel() {
+    if(!db_account) return alert("Vous devez créer un compte ou vous connecter avant d'entrer dans le salon vocal !");
+    
+    isMuted = false;
+    document.getElementById("btn-toggleMute").innerText = "Muter le micro 🎙️";
+    document.getElementById("btn-toggleMute").className = "orange";
+    document.getElementById("voiceWave").style.display = "inline-flex";
+
+    // Affichage de la fenêtre surgissante (modal)
+    openModalView("box-voice-room");
+    renderVoiceUsers();
+}
+
+function renderVoiceUsers() {
+    let listContainer = document.getElementById("voiceUsersList");
+    if(!listContainer) return;
+
+    // Simulation d'utilisateurs présents en plus de vous
+    let statusMicro = isMuted ? "<span style='color:red;'>[MUTÉ 🔇]</span>" : "<span style='color:green;'>[PARLE 🔊]</span>";
+    
+    listContainer.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); padding:6px; border-radius:6px;">
+            <span>🟢 ${db_account.name} (Vous)</span> ${statusMicro}
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; opacity:0.6; padding:6px;">
+            <span>🟢 Admin_Lucas</span> <span style='color:green;'>[PARLE 🔊]</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; opacity:0.6; padding:6px;">
+            <span>🟢 Player_Furious</span> <span style='color:red;'>[MUTÉ 🔇]</span>
+        </div>
+    `;
+}
+
+function toggleVoiceMute() {
+    isMuted = !isMuted;
+    let btn = document.getElementById("btn-toggleMute");
+    let wave = document.getElementById("voiceWave");
+
+    if(isMuted) {
+        btn.innerText = "Réactiver micro 🔇";
+        btn.className = "red";
+        wave.style.display = "none"; // Stop l'animation visuelle des ondes
+    } else {
+        btn.innerText = "Muter le micro 🎙️";
+        btn.className = "orange";
+        wave.style.display = "inline-flex"; // Reprise de l'animation
+    }
+    renderVoiceUsers();
+}
+
+function leaveVoiceChannel() {
+    // Fermeture propre de la fenêtre et arrêt du vocal
+    closeAllModals(null);
+    alert("Vous avez quitté le salon vocal.");
 }
 
 // Activation automatique de la glissade
